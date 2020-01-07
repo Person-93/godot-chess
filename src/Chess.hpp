@@ -55,6 +55,20 @@ private:
 
     void calculatePawnMoves( std::pair<int, int> location, bool isWhite );
 
+    /**
+     * Helper function that checks all the squares in one direction from the given location and inserts them into
+     * legalMoves_ until it finds an occupied square. The occupied square will be added if it is occupied by a piece
+     * of the opposite color
+     * @param location
+     * @param isWhite
+     * @param xIncrement
+     * @param yIncrement
+     */
+    void checkInDirection( std::pair<int, int> location,
+                           bool isWhite,
+                           void (* xIncrement)( int& ),
+                           void (* yIncrement)( int& ));
+
     void calculateRookMoves( std::pair<int, int> location, bool isWhite );
 
     void calculateKnightMoves( std::pair<int, int> location, bool isWhite );

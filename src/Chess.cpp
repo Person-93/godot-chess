@@ -123,16 +123,96 @@ void Chess::calculatePawnMoves( std::pair<int, int> location, bool isWhite ) {
     }
 }
 
-void Chess::calculateRookMoves( std::pair<int, int> location, bool isWhite ) {
+namespace {
+    bool validateLocation( std::pair<int, int> location ) {
+        return location.first >= 0 && location.first < 8 &&
+               location.second >= 0 && location.second < 8;
+    };
+}
 
+void Chess::checkInDirection( std::pair<int, int> location,
+                              bool isWhite,
+                              void (* xIncrement)( int& ),
+                              void (* yIncrement)( int& )) {
+    auto start = location;
+    xIncrement( location.first );
+    yIncrement( location.second );
+    for ( bool isEmpty = true;
+          isEmpty && validateLocation( location );
+          xIncrement( location.first ), yIncrement( location.second )) {
+        switch ( atLocation( location ).state ) {
+            case State::EMPTY:legalMoves_.insert( { start, location } );
+                break;
+            case State::WHITE:
+                if ( !isWhite )
+                    legalMoves_.insert( { start, location } );
+                isEmpty = false;
+                break;
+            case State::BLACK:
+                if ( isWhite )
+                    legalMoves_.insert( { start, location } );
+                isEmpty = false;
+                break;
+        }
+    }
+}
+
+void Chess::calculateRookMoves( std::pair<int, int> location, bool isWhite ) {
+    checkInDirection( location, isWhite, []( int& i ) { ++i; }, []( int& ) {} );
+    checkInDirection( location, isWhite, []( int& i ) { --i; }, []( int& ) {} );
+    checkInDirection( location, isWhite, []( int& ) {}, []( int& i ) { ++i; } );
+    checkInDirection( location, isWhite, []( int& ) {}, []( int& i ) { --i; } );
 }
 
 void Chess::calculateKnightMoves( std::pair<int, int> location, bool isWhite ) {
-
+    auto sameColor = isWhite ? State::WHITE : State::BLACK;
+    {
+        std::pair<int, int> destination = { location.first + 2, location.second + 1 };
+        if ( validateLocation( destination ) && atLocation( destination ).state != sameColor )
+            legalMoves_.insert( { location, destination } );
+    }
+    {
+        std::pair<int, int> destination = { location.first + 2, location.second - 1 };
+        if ( validateLocation( destination ) && atLocation( destination ).state != sameColor )
+            legalMoves_.insert( { location, destination } );
+    }
+    {
+        std::pair<int, int> destination = { location.first - 2, location.second + 1 };
+        if ( validateLocation( destination ) && atLocation( destination ).state != sameColor )
+            legalMoves_.insert( { location, destination } );
+    }
+    {
+        std::pair<int, int> destination = { location.first - 2, location.second - 1 };
+        if ( validateLocation( destination ) && atLocation( destination ).state != sameColor )
+            legalMoves_.insert( { location, destination } );
+    }
+    {
+        std::pair<int, int> destination = { location.first + 1, location.second + 2 };
+        if ( validateLocation( destination ) && atLocation( destination ).state != sameColor )
+            legalMoves_.insert( { location, destination } );
+    }
+    {
+        std::pair<int, int> destination = { location.first + 1, location.second - 2 };
+        if ( validateLocation( destination ) && atLocation( destination ).state != sameColor )
+            legalMoves_.insert( { location, destination } );
+    }
+    {
+        std::pair<int, int> destination = { location.first - 1, location.second + 2 };
+        if ( validateLocation( destination ) && atLocation( destination ).state != sameColor )
+            legalMoves_.insert( { location, destination } );
+    }
+    {
+        std::pair<int, int> destination = { location.first - 1, location.second - 2 };
+        if ( validateLocation( destination ) && atLocation( destination ).state != sameColor )
+            legalMoves_.insert( { location, destination } );
+    }
 }
 
 void Chess::calculateBishopMoves( std::pair<int, int> location, bool isWhite ) {
-
+    checkInDirection( location, isWhite, []( int& i ) { ++i; }, []( int& i ) { ++i; } );
+    checkInDirection( location, isWhite, []( int& i ) { --i; }, []( int& i ) { ++i; } );
+    checkInDirection( location, isWhite, []( int& i ) { ++i; }, []( int& i ) { --i; } );
+    checkInDirection( location, isWhite, []( int& i ) { --i; }, []( int& i ) { --i; } );
 }
 
 void Chess::calculateQueenMoves( std::pair<int, int> location, bool isWhite ) {
@@ -141,7 +221,22 @@ void Chess::calculateQueenMoves( std::pair<int, int> location, bool isWhite ) {
 }
 
 void Chess::calculateKingMoves( std::pair<int, int> location, bool isWhite ) {
-
+    const auto checkDirection = [ & ]( void(* xIncrement)( int& ), void(* yIncrement)( int& )) {
+        auto destination = location;
+        xIncrement( destination.first );
+        yIncrement( destination.second );
+        auto sameColor = isWhite ? State::WHITE : State::BLACK;
+        if ( validateLocation( destination ) && atLocation( destination ).state != sameColor )
+            legalMoves_.insert( { location, destination } );
+    };
+    checkDirection( []( int& i ) { ++i; }, []( int& ) {} );
+    checkDirection( []( int& i ) { --i; }, []( int& ) {} );
+    checkDirection( []( int& ) {}, []( int& i ) { ++i; } );
+    checkDirection( []( int& ) {}, []( int& i ) { --i; } );
+    checkDirection( []( int& i ) { ++i; }, []( int& i ) { ++i; } );
+    checkDirection( []( int& i ) { ++i; }, []( int& i ) { --i; } );
+    checkDirection( []( int& i ) { --i; }, []( int& i ) { ++i; } );
+    checkDirection( []( int& i ) { --i; }, []( int& i ) { --i; } );
 }
 
 bool operator==( const Chess::Move& a, const Chess::Move& b ) {
@@ -155,8 +250,8 @@ Chess::Cell& Chess::atLocation( std::pair<int, int> location ) {
 namespace {
     template< class T >
     void hash_combine( std::size_t& seed, const T& v ) {
-        std::hash<T> hasher;
-        seed ^= hasher( v ) + 0x9e3779b9 + ( seed << 6 ) + ( seed >> 2 );
+        std::hash<T> hasher{};
+        seed ^= hasher( v ) + 0x9e3779b9 + ( seed << 6 ) + ( seed >> 2 ); // NOLINT(hicpp-signed-bitwise)
     }
 }
 

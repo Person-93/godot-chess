@@ -55,12 +55,14 @@ func _setup_pieces():
 func _on_Button_grabbed(button):
 	dragging = true
 	dragged = button
+	dragged.get_node("Sprite").z_index = 1
 	start_pos = dragged.get_position()
 
 
 func _input(event):
 	if dragging and event is InputEventMouseButton and event.button_index == BUTTON_LEFT and !event.pressed:
 		dragging = false
+		dragged.get_node("Sprite").z_index = 0
 		var new_grid_pos = _grid_pos(dragged.get_position())
 		if chess.move(dragged.grid_pos, new_grid_pos):
 			_setup_pieces()

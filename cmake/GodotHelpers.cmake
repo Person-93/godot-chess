@@ -1,0 +1,22 @@
+include_guard ()
+
+function ( godot_target target godot_project_path )
+    get_target_property ( target_type ${target} TYPE )
+    if ( NOT target_type STREQUAL "SHARED_LIBRARY" )
+        message ( FATAL_ERROR "Only a shared library can be a godot target" )
+    endif ()
+    if ( NOT EXISTS "${godot_project_path}" )
+        message ( FATAL_ERROR "Godot project path must exist" )
+    endif ()
+    set ( target_path "${godot_project_path}/bin/" )
+
+    if ( CMAKE_SYSTEM_NAME STREQUAL "Linux" )
+        string ( APPEND target_path "X11/" )
+    elseif ( CMAKE_SYSTEM_NAME STREQUAL "Windows" )
+        string ( APPEND target_path "win64/" )
+    elseif ( CMAKE_SYSTEM_NAME STREQUAL "Darwin" )
+        string ( APPEND target_path "osx/" )
+    endif ()
+
+    set_property ( TARGET ${target} PROPERTY LIBRARY_OUTPUT_DIRECTORY ${target_path} )
+endfunction ()

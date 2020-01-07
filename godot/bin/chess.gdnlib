@@ -1,0 +1,18 @@
+[entry]
+
+X11.64="res://bin/X11/libchess.so"
+Windows.64="res://bin/win64/libchess.dll"
+OSX.64="res://bin/osx/libchess.dylib"
+
+[dependencies]
+
+X11.64=[  ]
+Windows.64=[  ]
+OSX.64=[  ]
+
+[general]
+
+singleton=false
+load_once=true
+symbol_prefix="godot_"
+reloadable=true

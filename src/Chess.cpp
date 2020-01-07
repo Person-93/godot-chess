@@ -48,6 +48,7 @@ void Chess::calculateLegalMoves() {
             switch ( currentCell.state ) {
                 case State::EMPTY:continue;
                 case State::WHITE:if ( !whiteTurn ) continue;
+                    break;
                 case State::BLACK:if ( whiteTurn ) continue;
             }
 
@@ -73,7 +74,7 @@ void Chess::calculatePawnMoves( std::pair<int, int> location, bool isWhite ) {
     if ( isWhite ) {
         std::pair<int, int> oneForward = { location.first - 1, location.second };
         if ( atLocation( oneForward ).state == State::EMPTY )
-            legalMoves_.insert( { location, { location.first - 1, location.second }} );
+            legalMoves_.insert( { location, oneForward } );
 
         // can move two spaces if in starting position
         if ( location.first == 6 ) {
@@ -92,6 +93,31 @@ void Chess::calculatePawnMoves( std::pair<int, int> location, bool isWhite ) {
         {
             std::pair<int, int> diagonal = { location.first - 1, location.second + 1 };
             if ( atLocation( diagonal ).state == State::BLACK )
+                legalMoves_.insert( { location, diagonal } );
+        }
+    }
+    else {
+        std::pair<int, int> oneForward = { location.first + 1, location.second };
+        if ( atLocation( oneForward ).state == State::EMPTY )
+            legalMoves_.insert( { location, oneForward } );
+
+        // can move two spaces if in starting position
+        if ( location.first == 1 ) {
+            std::pair<int, int> twoForward = { location.first + 2, location.second };
+            if ( atLocation( twoForward ).state == State::EMPTY )
+                legalMoves_.insert( { location, twoForward } );
+        }
+
+        // check if it can capture
+        {
+            std::pair<int, int> diagonal = { location.first + 1, location.second - 1 };
+            if ( atLocation( diagonal ).state == State::WHITE )
+                legalMoves_.insert( { location, diagonal } );
+        }
+        // check other diagonal
+        {
+            std::pair<int, int> diagonal = { location.first + 1, location.second + 1 };
+            if ( atLocation( diagonal ).state == State::WHITE )
                 legalMoves_.insert( { location, diagonal } );
         }
     }

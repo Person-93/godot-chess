@@ -24,6 +24,8 @@ public:
 
     Chess();
 
+    Chess( const Chess& other );
+
     [[nodiscard]] const BoardState& boardState() const { return boardState_; }
 
     bool move( std::pair<int, int> start, std::pair<int, int> end );
@@ -97,6 +99,8 @@ private:
 
     BoardState            boardState_;
     mutable MovesDatabase moves;
-    bool                  whiteTurn = true;
-    bool                  inCheck   = false;
+    bool                  whiteTurn   = true;
+    bool                  inCheck     = false;
+    std::pair<int, int>   whiteKingLocation;
+    std::pair<int, int>   blackKingLocation;
 };

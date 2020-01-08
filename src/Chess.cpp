@@ -16,11 +16,24 @@ Chess::Chess() : boardState_{} {
         boardState_[ 6 ][ i ] = { State::WHITE, Pieces::PAWN };
     }
 
+    whiteKingLocation = { 7, 4 };
+    blackKingLocation = { 0, 4 };
+
     boardState_[ 7 ] = boardState_[ 0 ];
     for ( int i        = 0; i < 8; ++i ) {
         boardState_[ 7 ][ i ].state = State::WHITE;
     }
     auto      inserter = moves.inserter();
+    calculateLegalMoves( inserter );
+}
+
+Chess::Chess( const Chess& other ) :
+        boardState_{ other.boardState_ },
+        whiteTurn{ other.whiteTurn },
+        inCheck{ other.inCheck },
+        whiteKingLocation{ other.whiteKingLocation },
+        blackKingLocation{ other.blackKingLocation } {
+    auto inserter = moves.inserter();
     calculateLegalMoves( inserter );
 }
 
@@ -36,11 +49,55 @@ bool Chess::move( std::pair<int, int> start, std::pair<int, int> end ) {
     if ( !moveFound ) return false;
 
 
+    // make the move
     auto& startCell = atLocation( start );
     auto& endCell   = atLocation( end );
+    auto oldEndCell = endCell;
     endCell = startCell;
     startCell.state = State::EMPTY;
+
+    // if a king moved, update location
+    if ( endCell.piece == Pieces::KING ) {
+        if ( whiteTurn )
+            whiteKingLocation = end;
+        else
+            blackKingLocation = end;
+    }
+
+    // make sure the move doesn't leave the player in check
+    {
+        whiteTurn              = !whiteTurn;
+        MovesDatabase nextTurnMoves{};
+        auto          inserter = nextTurnMoves.inserter();
+        calculateLegalMoves( inserter );
+        bool putInCheck;
+        auto kingLocation      = whiteTurn ? blackKingLocation : whiteKingLocation;
+        nextTurnMoves.db << "SELECT EXISTS(SELECT * FROM moves WHERE end_x = ? AND end_y = ?);"
+                         << kingLocation.first << kingLocation.second
+                         >> putInCheck;
+        whiteTurn = !whiteTurn;
+        if ( putInCheck ) {
+            // undo the move
+            startCell = endCell;
+            endCell   = oldEndCell;
+            return false;
+        }
+    }
+
+    // determine if this move placed the other player in check
+    {
+        MovesDatabase nextTurnMoves{};
+        auto          inserter = nextTurnMoves.inserter();
+        calculateLegalMoves( inserter );
+        auto kingLocation = whiteTurn ? blackKingLocation : whiteKingLocation;
+        nextTurnMoves.db << "SELECT EXISTS(SELECT * FROM moves WHERE end_x = ? AND end_y = ?);"
+                         << kingLocation.first << kingLocation.second
+                         >> inCheck;
+    }
+
+    // setup next turn
     whiteTurn = !whiteTurn;
+    moves.db << "DELETE FROM moves";
     auto inserter = moves.inserter();
     calculateLegalMoves( inserter );
     return true;

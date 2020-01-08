@@ -31,6 +31,7 @@ Chess::Chess( const Chess& other ) :
         boardState_{ other.boardState_ },
         whiteTurn{ other.whiteTurn },
         inCheck{ other.inCheck },
+        inCheckmate{ other.inCheckmate },
         whiteKingLocation{ other.whiteKingLocation },
         blackKingLocation{ other.blackKingLocation } {
     auto inserter = moves.inserter();
@@ -38,16 +39,22 @@ Chess::Chess( const Chess& other ) :
 }
 
 bool Chess::move( std::pair<int, int> start, std::pair<int, int> end ) {
+    if ( inCheckmate ) return false;
+
+    // make sure move stars and ends on the board
     if ( start.first < 0 || start.first > 7 ) return false;
     if ( start.second < 0 || start.second > 7 ) return false;
     if ( end.first < 0 || end.first > 7 ) return false;
     if ( end.second < 0 || end.second > 7 ) return false;
-    bool moveFound;
-    moves.db << "SELECT EXISTS(SELECT * FROM moves WHERE start_x = ? AND start_y = ? AND end_x = ? AND end_y = ?);"
-             << start.first << start.second << end.first << end.second
-             >> moveFound;
-    if ( !moveFound ) return false;
 
+    // check if move is in database
+    {
+        bool moveFound;
+        moves.db << "SELECT EXISTS(SELECT * FROM moves WHERE start_x = ? AND start_y = ? AND end_x = ? AND end_y = ?);"
+                 << start.first << start.second << end.first << end.second
+                 >> moveFound;
+        if ( !moveFound ) return false;
+    }
 
     // make the move
     auto& startCell = atLocation( start );
@@ -80,6 +87,12 @@ bool Chess::move( std::pair<int, int> start, std::pair<int, int> end ) {
             // undo the move
             startCell = endCell;
             endCell   = oldEndCell;
+            if ( startCell.piece == Pieces::KING ) {
+                if ( whiteTurn )
+                    whiteKingLocation = start;
+                else
+                    blackKingLocation = start;
+            }
             return false;
         }
     }
@@ -100,6 +113,21 @@ bool Chess::move( std::pair<int, int> start, std::pair<int, int> end ) {
     moves.db << "DELETE FROM moves";
     auto inserter = moves.inserter();
     calculateLegalMoves( inserter );
+
+    // determine if this move checkmated the other player
+    if ( inCheck ) {
+        // make a copy of the state of the game and try out each move to see if it gets the player out of check
+        bool  wayOutExists = false;
+        Chess nextTurn{ *this };
+        for ( const auto& move: legalMoves()) {
+            if ( nextTurn.move( move.start, move.end )) {
+                wayOutExists = true;
+                break;
+            }
+        }
+        if ( !wayOutExists ) inCheckmate = true;
+    }
+
     return true;
 }
 
@@ -189,7 +217,7 @@ namespace {
     bool validateLocation( std::pair<int, int> location ) {
         return location.first >= 0 && location.first < 8 &&
                location.second >= 0 && location.second < 8;
-    };
+    }
 }
 
 void Chess::checkInDirection( MovesDatabase::Inserter& inserter,
@@ -314,21 +342,10 @@ Chess::LegalMoves Chess::legalMoves() const {
     LegalMoves legalMoves_;
     moves.db << "SELECT start_x, start_y, end_x, end_y FROM moves;"
              >> [ & ]( int startX, int startY, int endX, int endY ) {
-                 auto move = legalMoves_.emplace_back();
-                 move.start.first  = startX;
-                 move.start.second = endY;
-                 move.end.first    = endX;
-                 move.end.first    = endY;
+                 legalMoves_.push_back( {{ startX, startY },
+                                         { endX,   endY }} );
              };
     return legalMoves_;
-}
-
-namespace {
-    template< class T >
-    void hash_combine( std::size_t& seed, const T& v ) {
-        std::hash<T> hasher{};
-        seed ^= hasher( v ) + 0x9e3779b9 + ( seed << 6 ) + ( seed >> 2 ); // NOLINT(hicpp-signed-bitwise)
-    }
 }
 
 Chess::MovesDatabase::MovesDatabase() {

@@ -7,6 +7,7 @@ void ChessWrapper::_register_methods() {
     register_method( "board_state", &ChessWrapper::boardState );
     register_method( "is_white_turn", &ChessWrapper::isWhiteTurn );
     register_method( "is_in_check", &ChessWrapper::isInCheck );
+    register_method( "is_checkmated", &ChessWrapper::isInCheckmate );
 }
 
 void ChessWrapper::_init() {

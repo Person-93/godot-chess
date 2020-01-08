@@ -74,6 +74,10 @@ func _input(event):
 
 func _on_move():
 	_setup_pieces()
+	if chess.is_checkmated():
+		var new_status = "Black wins!" if chess.is_white_turn() else "White wins!"
+		emit_signal("status_change", new_status)
+		return
 	var new_status = "White" if chess.is_white_turn() else "Black"
 	new_status += " in Check!" if chess.is_in_check() else " Move"
 	emit_signal("status_change", new_status)

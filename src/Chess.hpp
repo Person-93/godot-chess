@@ -34,6 +34,8 @@ public:
 
     [[nodiscard]] bool isInCheck() const { return inCheck; }
 
+    [[nodiscard]] bool isInCheckmate() const { return inCheckmate; }
+
     struct Move {
         std::pair<int, int> start;
         std::pair<int, int> end;
@@ -101,6 +103,7 @@ private:
     mutable MovesDatabase moves;
     bool                  whiteTurn   = true;
     bool                  inCheck     = false;
+    bool                  inCheckmate = false;
     std::pair<int, int>   whiteKingLocation;
     std::pair<int, int>   blackKingLocation;
 };

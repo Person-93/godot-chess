@@ -21,6 +21,8 @@ public:
 
     [[nodiscard]] bool isInCheck() const { return chess.isInCheck(); }
 
+    [[nodiscard]] bool isInCheckmate() const { return chess.isInCheckmate(); }
+
 private:
     void convertBoardState();
 

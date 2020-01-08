@@ -17,11 +17,11 @@ Chess::Chess() : boardState_{} {
     }
 
     boardState_[ 7 ] = boardState_[ 0 ];
-    for ( int i = 0; i < 8; ++i ) {
+    for ( int i        = 0; i < 8; ++i ) {
         boardState_[ 7 ][ i ].state = State::WHITE;
     }
-
-    calculateLegalMoves();
+    auto      inserter = moves.inserter();
+    calculateLegalMoves( inserter );
 }
 
 bool Chess::move( std::pair<int, int> start, std::pair<int, int> end ) {
@@ -29,19 +29,24 @@ bool Chess::move( std::pair<int, int> start, std::pair<int, int> end ) {
     if ( start.second < 0 || start.second > 7 ) return false;
     if ( end.first < 0 || end.first > 7 ) return false;
     if ( end.second < 0 || end.second > 7 ) return false;
-    if ( legalMoves_.find( { start, end } ) == legalMoves_.end()) return false;
+    bool moveFound;
+    moves.db << "SELECT EXISTS(SELECT * FROM moves WHERE start_x = ? AND start_y = ? AND end_x = ? AND end_y = ?);"
+             << start.first << start.second << end.first << end.second
+             >> moveFound;
+    if ( !moveFound ) return false;
+
 
     auto& startCell = atLocation( start );
     auto& endCell   = atLocation( end );
     endCell = startCell;
     startCell.state = State::EMPTY;
     whiteTurn = !whiteTurn;
-    calculateLegalMoves();
+    auto inserter = moves.inserter();
+    calculateLegalMoves( inserter );
     return true;
 }
 
-void Chess::calculateLegalMoves() {
-    legalMoves_.clear();
+void Chess::calculateLegalMoves( MovesDatabase::Inserter& inserter ) {
     for ( int i = 0; i < 8; ++i ) {
         for ( int j = 0; j < 8; ++j ) {
             auto& currentCell = boardState_[ i ][ j ];
@@ -53,72 +58,72 @@ void Chess::calculateLegalMoves() {
             }
 
             switch ( currentCell.piece ) {
-                case Pieces::PAWN:calculatePawnMoves( { i, j }, whiteTurn );
+                case Pieces::PAWN:calculatePawnMoves( inserter, { i, j }, whiteTurn );
                     break;
-                case Pieces::ROOK:calculateRookMoves( { i, j }, whiteTurn );
+                case Pieces::ROOK:calculateRookMoves( inserter, { i, j }, whiteTurn );
                     break;
-                case Pieces::KNIGHT:calculateKnightMoves( { i, j }, whiteTurn );
+                case Pieces::KNIGHT:calculateKnightMoves( inserter, { i, j }, whiteTurn );
                     break;
-                case Pieces::BISHOP:calculateBishopMoves( { i, j }, whiteTurn );
+                case Pieces::BISHOP:calculateBishopMoves( inserter, { i, j }, whiteTurn );
                     break;
-                case Pieces::QUEEN:calculateQueenMoves( { i, j }, whiteTurn );
+                case Pieces::QUEEN:calculateQueenMoves( inserter, { i, j }, whiteTurn );
                     break;
-                case Pieces::KING:calculateKingMoves( { i, j }, whiteTurn );
+                case Pieces::KING:calculateKingMoves( inserter, { i, j }, whiteTurn );
                     break;
             }
         }
     }
 }
 
-void Chess::calculatePawnMoves( std::pair<int, int> location, bool isWhite ) {
+void Chess::calculatePawnMoves( MovesDatabase::Inserter& inserter, std::pair<int, int> location, bool isWhite ) {
     if ( isWhite ) {
         std::pair<int, int> oneForward = { location.first - 1, location.second };
         if ( atLocation( oneForward ).state == State::EMPTY )
-            legalMoves_.insert( { location, oneForward } );
+            inserter.insert( { location, oneForward } );
 
         // can move two spaces if in starting position
         if ( location.first == 6 ) {
             std::pair<int, int> twoForward = { location.first - 2, location.second };
             if ( atLocation( twoForward ).state == State::EMPTY )
-                legalMoves_.insert( { location, twoForward } );
+                inserter.insert( { location, twoForward } );
         }
 
         // check if it can capture
         {
             std::pair<int, int> diagonal = { location.first - 1, location.second - 1 };
             if ( atLocation( diagonal ).state == State::BLACK )
-                legalMoves_.insert( { location, diagonal } );
+                inserter.insert( { location, diagonal } );
         }
         // check other diagonal
         {
             std::pair<int, int> diagonal = { location.first - 1, location.second + 1 };
             if ( atLocation( diagonal ).state == State::BLACK )
-                legalMoves_.insert( { location, diagonal } );
+                inserter.insert( { location, diagonal } );
         }
     }
     else {
         std::pair<int, int> oneForward = { location.first + 1, location.second };
         if ( atLocation( oneForward ).state == State::EMPTY )
-            legalMoves_.insert( { location, oneForward } );
+            inserter.insert( { location, oneForward } );
 
         // can move two spaces if in starting position
         if ( location.first == 1 ) {
             std::pair<int, int> twoForward = { location.first + 2, location.second };
             if ( atLocation( twoForward ).state == State::EMPTY )
-                legalMoves_.insert( { location, twoForward } );
+                inserter.insert( { location, twoForward } );
         }
 
         // check if it can capture
         {
             std::pair<int, int> diagonal = { location.first + 1, location.second - 1 };
             if ( atLocation( diagonal ).state == State::WHITE )
-                legalMoves_.insert( { location, diagonal } );
+                inserter.insert( { location, diagonal } );
         }
         // check other diagonal
         {
             std::pair<int, int> diagonal = { location.first + 1, location.second + 1 };
             if ( atLocation( diagonal ).state == State::WHITE )
-                legalMoves_.insert( { location, diagonal } );
+                inserter.insert( { location, diagonal } );
         }
     }
 }
@@ -130,7 +135,8 @@ namespace {
     };
 }
 
-void Chess::checkInDirection( std::pair<int, int> location,
+void Chess::checkInDirection( MovesDatabase::Inserter& inserter,
+                              std::pair<int, int> location,
                               bool isWhite,
                               void (* xIncrement)( int& ),
                               void (* yIncrement)( int& )) {
@@ -141,93 +147,93 @@ void Chess::checkInDirection( std::pair<int, int> location,
           isEmpty && validateLocation( location );
           xIncrement( location.first ), yIncrement( location.second )) {
         switch ( atLocation( location ).state ) {
-            case State::EMPTY:legalMoves_.insert( { start, location } );
+            case State::EMPTY:inserter.insert( { start, location } );
                 break;
             case State::WHITE:
                 if ( !isWhite )
-                    legalMoves_.insert( { start, location } );
+                    inserter.insert( { start, location } );
                 isEmpty = false;
                 break;
             case State::BLACK:
                 if ( isWhite )
-                    legalMoves_.insert( { start, location } );
+                    inserter.insert( { start, location } );
                 isEmpty = false;
                 break;
         }
     }
 }
 
-void Chess::calculateRookMoves( std::pair<int, int> location, bool isWhite ) {
-    checkInDirection( location, isWhite, []( int& i ) { ++i; }, []( int& ) {} );
-    checkInDirection( location, isWhite, []( int& i ) { --i; }, []( int& ) {} );
-    checkInDirection( location, isWhite, []( int& ) {}, []( int& i ) { ++i; } );
-    checkInDirection( location, isWhite, []( int& ) {}, []( int& i ) { --i; } );
+void Chess::calculateRookMoves( MovesDatabase::Inserter& inserter, std::pair<int, int> location, bool isWhite ) {
+    checkInDirection( inserter, location, isWhite, []( int& i ) { ++i; }, []( int& ) {} );
+    checkInDirection( inserter, location, isWhite, []( int& i ) { --i; }, []( int& ) {} );
+    checkInDirection( inserter, location, isWhite, []( int& ) {}, []( int& i ) { ++i; } );
+    checkInDirection( inserter, location, isWhite, []( int& ) {}, []( int& i ) { --i; } );
 }
 
-void Chess::calculateKnightMoves( std::pair<int, int> location, bool isWhite ) {
+void Chess::calculateKnightMoves( MovesDatabase::Inserter& inserter, std::pair<int, int> location, bool isWhite ) {
     auto sameColor = isWhite ? State::WHITE : State::BLACK;
     {
         std::pair<int, int> destination = { location.first + 2, location.second + 1 };
         if ( validateLocation( destination ) && atLocation( destination ).state != sameColor )
-            legalMoves_.insert( { location, destination } );
+            inserter.insert( { location, destination } );
     }
     {
         std::pair<int, int> destination = { location.first + 2, location.second - 1 };
         if ( validateLocation( destination ) && atLocation( destination ).state != sameColor )
-            legalMoves_.insert( { location, destination } );
+            inserter.insert( { location, destination } );
     }
     {
         std::pair<int, int> destination = { location.first - 2, location.second + 1 };
         if ( validateLocation( destination ) && atLocation( destination ).state != sameColor )
-            legalMoves_.insert( { location, destination } );
+            inserter.insert( { location, destination } );
     }
     {
         std::pair<int, int> destination = { location.first - 2, location.second - 1 };
         if ( validateLocation( destination ) && atLocation( destination ).state != sameColor )
-            legalMoves_.insert( { location, destination } );
+            inserter.insert( { location, destination } );
     }
     {
         std::pair<int, int> destination = { location.first + 1, location.second + 2 };
         if ( validateLocation( destination ) && atLocation( destination ).state != sameColor )
-            legalMoves_.insert( { location, destination } );
+            inserter.insert( { location, destination } );
     }
     {
         std::pair<int, int> destination = { location.first + 1, location.second - 2 };
         if ( validateLocation( destination ) && atLocation( destination ).state != sameColor )
-            legalMoves_.insert( { location, destination } );
+            inserter.insert( { location, destination } );
     }
     {
         std::pair<int, int> destination = { location.first - 1, location.second + 2 };
         if ( validateLocation( destination ) && atLocation( destination ).state != sameColor )
-            legalMoves_.insert( { location, destination } );
+            inserter.insert( { location, destination } );
     }
     {
         std::pair<int, int> destination = { location.first - 1, location.second - 2 };
         if ( validateLocation( destination ) && atLocation( destination ).state != sameColor )
-            legalMoves_.insert( { location, destination } );
+            inserter.insert( { location, destination } );
     }
 }
 
-void Chess::calculateBishopMoves( std::pair<int, int> location, bool isWhite ) {
-    checkInDirection( location, isWhite, []( int& i ) { ++i; }, []( int& i ) { ++i; } );
-    checkInDirection( location, isWhite, []( int& i ) { --i; }, []( int& i ) { ++i; } );
-    checkInDirection( location, isWhite, []( int& i ) { ++i; }, []( int& i ) { --i; } );
-    checkInDirection( location, isWhite, []( int& i ) { --i; }, []( int& i ) { --i; } );
+void Chess::calculateBishopMoves( MovesDatabase::Inserter& inserter, std::pair<int, int> location, bool isWhite ) {
+    checkInDirection( inserter, location, isWhite, []( int& i ) { ++i; }, []( int& i ) { ++i; } );
+    checkInDirection( inserter, location, isWhite, []( int& i ) { --i; }, []( int& i ) { ++i; } );
+    checkInDirection( inserter, location, isWhite, []( int& i ) { ++i; }, []( int& i ) { --i; } );
+    checkInDirection( inserter, location, isWhite, []( int& i ) { --i; }, []( int& i ) { --i; } );
 }
 
-void Chess::calculateQueenMoves( std::pair<int, int> location, bool isWhite ) {
-    calculateBishopMoves( location, isWhite );
-    calculateRookMoves( location, isWhite );
+void Chess::calculateQueenMoves( MovesDatabase::Inserter& inserter, std::pair<int, int> location, bool isWhite ) {
+    calculateBishopMoves( inserter, location, isWhite );
+    calculateRookMoves( inserter, location, isWhite );
 }
 
-void Chess::calculateKingMoves( std::pair<int, int> location, bool isWhite ) {
+void Chess::calculateKingMoves( MovesDatabase::Inserter& inserter, std::pair<int, int> location, bool isWhite ) {
     const auto checkDirection = [ & ]( void(* xIncrement)( int& ), void(* yIncrement)( int& )) {
         auto destination = location;
         xIncrement( destination.first );
         yIncrement( destination.second );
         auto sameColor = isWhite ? State::WHITE : State::BLACK;
         if ( validateLocation( destination ) && atLocation( destination ).state != sameColor )
-            legalMoves_.insert( { location, destination } );
+            inserter.insert( { location, destination } );
     };
     checkDirection( []( int& i ) { ++i; }, []( int& ) {} );
     checkDirection( []( int& i ) { --i; }, []( int& ) {} );
@@ -247,6 +253,19 @@ Chess::Cell& Chess::atLocation( std::pair<int, int> location ) {
     return boardState_[ location.first ][ location.second ];
 }
 
+Chess::LegalMoves Chess::legalMoves() const {
+    LegalMoves legalMoves_;
+    moves.db << "SELECT start_x, start_y, end_x, end_y FROM moves;"
+             >> [ & ]( int startX, int startY, int endX, int endY ) {
+                 auto move = legalMoves_.emplace_back();
+                 move.start.first  = startX;
+                 move.start.second = endY;
+                 move.end.first    = endX;
+                 move.end.first    = endY;
+             };
+    return legalMoves_;
+}
+
 namespace {
     template< class T >
     void hash_combine( std::size_t& seed, const T& v ) {
@@ -255,10 +274,16 @@ namespace {
     }
 }
 
-size_t Chess::HashMove::operator()( const Chess::Move& move ) const {
-    size_t seed = std::hash<int>{}( move.start.first );
-    hash_combine( seed, move.start.second );
-    hash_combine( seed, move.end.first );
-    hash_combine( seed, move.end.second );
-    return seed;
+Chess::MovesDatabase::MovesDatabase() {
+    db << "CREATE TABLE moves(start_x INT, start_y INT, end_x INT, end_y INT)";
+}
+
+Chess::MovesDatabase::Inserter Chess::MovesDatabase::inserter() {
+    return { db << "INSERT INTO moves(start_x, start_y, end_x, end_y) VALUES(?,?,?,?);" };
+}
+
+void Chess::MovesDatabase::Inserter::insert( const Chess::Move& move ) {
+    binder.reset();
+    binder << move.start.first << move.start.second << move.end.first << move.end.second;
+    binder.execute();
 }

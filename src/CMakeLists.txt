@@ -5,5 +5,5 @@ add_library ( chess SHARED
               ChessWrapper.hpp
               ChessWrapper.cpp
               )
-target_link_libraries ( chess godot-cpp )
+target_link_libraries ( chess godot-cpp sqlite )
 godot_target ( chess ${CMAKE_SOURCE_DIR}/godot )

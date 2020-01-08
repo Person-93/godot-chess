@@ -12,7 +12,7 @@ void ChessWrapper::_register_methods() {
 void ChessWrapper::_init() {
     boardState_.resize( 64 );
     convertBoardState();
-    Godot::print( String( "Legal moves: " ) + Variant(chess.legalMoves().size()));
+    Godot::print( String( "Legal moves: " ) + Variant((int) chess.legalMoves().size()));
 }
 
 namespace {
@@ -49,7 +49,7 @@ bool ChessWrapper::move( godot::Vector2 start, godot::Vector2 end ) {
     if ( result ) {
         boardState_.set((int) ( end.x * 8 + end.y ), convertCell( chess.boardState()[ end.x ][ end.y ] ));
         boardState_.set((int) ( start.x * 8 + start.y ), "empty" );
-        Godot::print( String( "Legal moves: " ) + chess.legalMoves().size());
+        Godot::print( String( "Legal moves: " ) + Variant((int) chess.legalMoves().size()));
     }
     else {
         Godot::print( "Illegal move!" );

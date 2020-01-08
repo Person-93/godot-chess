@@ -3,6 +3,7 @@
 #include <array>
 #include <utility>
 #include <unordered_set>
+#include <sqlite_modern_cpp.h>
 
 class Chess {
 public:
@@ -40,20 +41,34 @@ public:
 
     friend bool operator!=( const Move& a, const Move& b ) { return !( a == b ); }
 
-    struct HashMove {
-        size_t operator()( const Move& move ) const;
-    };
+    using LegalMoves = std::vector<Move>;
 
-    using LegalMoves = std::unordered_set<Move, HashMove>;
-
-    [[nodiscard]] const LegalMoves& legalMoves() const { return legalMoves_; }
+    [[nodiscard]] LegalMoves legalMoves() const;
 
 private:
     Cell& atLocation( std::pair<int, int> location );
 
-    void calculateLegalMoves();
+    struct MovesDatabase {
+        MovesDatabase();
 
-    void calculatePawnMoves( std::pair<int, int> location, bool isWhite );
+        MovesDatabase( const MovesDatabase& ) = delete;
+
+        MovesDatabase( MovesDatabase&& ) = default;
+
+        struct Inserter {
+            sqlite::database_binder binder;
+
+            void insert( const Move& move );
+        };
+
+        Inserter inserter();
+
+        sqlite::database db{ ":memory:" };
+    };
+
+    void calculateLegalMoves( MovesDatabase::Inserter& inserter );
+
+    void calculatePawnMoves( MovesDatabase::Inserter& inserter, std::pair<int, int> location, bool isWhite );
 
     /**
      * Helper function that checks all the squares in one direction from the given location and inserts them into
@@ -64,23 +79,24 @@ private:
      * @param xIncrement
      * @param yIncrement
      */
-    void checkInDirection( std::pair<int, int> location,
+    void checkInDirection( MovesDatabase::Inserter& inserter,
+                           std::pair<int, int> location,
                            bool isWhite,
                            void (* xIncrement)( int& ),
                            void (* yIncrement)( int& ));
 
-    void calculateRookMoves( std::pair<int, int> location, bool isWhite );
+    void calculateRookMoves( MovesDatabase::Inserter& inserter, std::pair<int, int> location, bool isWhite );
 
-    void calculateKnightMoves( std::pair<int, int> location, bool isWhite );
+    void calculateKnightMoves( MovesDatabase::Inserter& inserter, std::pair<int, int> location, bool isWhite );
 
-    void calculateBishopMoves( std::pair<int, int> location, bool isWhite );
+    void calculateBishopMoves( MovesDatabase::Inserter& inserter, std::pair<int, int> location, bool isWhite );
 
-    void calculateQueenMoves( std::pair<int, int> location, bool isWhite );
+    void calculateQueenMoves( MovesDatabase::Inserter& inserter, std::pair<int, int> location, bool isWhite );
 
-    void calculateKingMoves( std::pair<int, int> location, bool isWhite );
+    void calculateKingMoves( MovesDatabase::Inserter& inserter, std::pair<int, int> location, bool isWhite );
 
-    BoardState boardState_;
-    LegalMoves legalMoves_;
-    bool       whiteTurn = true;
-    bool       inCheck   = false;
+    BoardState            boardState_;
+    mutable MovesDatabase moves;
+    bool                  whiteTurn = true;
+    bool                  inCheck   = false;
 };

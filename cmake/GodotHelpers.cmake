@@ -19,4 +19,5 @@ function ( godot_target target godot_project_path )
     endif ()
 
     set_property ( TARGET ${target} PROPERTY LIBRARY_OUTPUT_DIRECTORY ${target_path} )
+    set_property ( TARGET ${target} PROPERTY RUNTIME_OUTPUT_DIRECTORY ${target_path} )
 endfunction ()

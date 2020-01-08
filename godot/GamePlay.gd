@@ -1,5 +1,7 @@
 extends Control
 
+signal status_change(status)
+
 var chess = preload("res://bin/chess.gdns").new()
 var dragging = false
 var dragged
@@ -65,9 +67,16 @@ func _input(event):
 		dragged.get_node("Sprite").z_index = 0
 		var new_grid_pos = _grid_pos(dragged.get_position())
 		if chess.move(dragged.grid_pos, new_grid_pos):
-			_setup_pieces()
+			_on_move()
 		else:
 			dragged.set_position(start_pos)
+
+
+func _on_move():
+	_setup_pieces()
+	var new_status = "White" if chess.is_white_turn() else "Black"
+	new_status += " in Check!" if chess.is_in_check() else " Move"
+	emit_signal("status_change", new_status)
 
 
 func _process(delta):

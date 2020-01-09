@@ -70,7 +70,7 @@ private:
         sqlite::database db{ ":memory:" };
     };
 
-    void calculateLegalMoves( MovesDatabase::Inserter& inserter );
+    void calculateLegalMoves( MovesDatabase::Inserter& inserter, bool isWhite, bool excludeKing = false );
 
     void calculatePawnMoves( MovesDatabase::Inserter& inserter, std::pair<int, int> location, bool isWhite );
 

@@ -24,7 +24,7 @@ Chess::Chess() : boardState_{} {
         boardState_[ 7 ][ i ].state = State::WHITE;
     }
     auto      inserter = moves.inserter();
-    calculateLegalMoves( inserter );
+    calculateLegalMoves( inserter, whiteTurn );
 }
 
 Chess::Chess( const Chess& other ) :
@@ -35,7 +35,7 @@ Chess::Chess( const Chess& other ) :
         whiteKingLocation{ other.whiteKingLocation },
         blackKingLocation{ other.blackKingLocation } {
     auto inserter = moves.inserter();
-    calculateLegalMoves( inserter );
+    calculateLegalMoves( inserter, whiteTurn );
 }
 
 bool Chess::move( std::pair<int, int> start, std::pair<int, int> end ) {
@@ -73,16 +73,14 @@ bool Chess::move( std::pair<int, int> start, std::pair<int, int> end ) {
 
     // make sure the move doesn't leave the player in check
     {
-        whiteTurn              = !whiteTurn;
         MovesDatabase nextTurnMoves{};
         auto          inserter = nextTurnMoves.inserter();
-        calculateLegalMoves( inserter );
+        calculateLegalMoves( inserter, !whiteTurn );
         bool putInCheck;
-        auto kingLocation      = whiteTurn ? blackKingLocation : whiteKingLocation;
+        auto kingLocation      = whiteTurn ? whiteKingLocation : blackKingLocation;
         nextTurnMoves.db << "SELECT EXISTS(SELECT * FROM moves WHERE end_x = ? AND end_y = ?);"
                          << kingLocation.first << kingLocation.second
                          >> putInCheck;
-        whiteTurn = !whiteTurn;
         if ( putInCheck ) {
             // undo the move
             startCell = endCell;
@@ -121,7 +119,7 @@ bool Chess::move( std::pair<int, int> start, std::pair<int, int> end ) {
     {
         MovesDatabase nextTurnMoves{};
         auto          inserter = nextTurnMoves.inserter();
-        calculateLegalMoves( inserter );
+        calculateLegalMoves( inserter, whiteTurn );
         auto kingLocation = whiteTurn ? blackKingLocation : whiteKingLocation;
         nextTurnMoves.db << "SELECT EXISTS(SELECT * FROM moves WHERE end_x = ? AND end_y = ?);"
                          << kingLocation.first << kingLocation.second
@@ -132,7 +130,7 @@ bool Chess::move( std::pair<int, int> start, std::pair<int, int> end ) {
     whiteTurn = !whiteTurn;
     moves.db << "DELETE FROM moves";
     auto inserter = moves.inserter();
-    calculateLegalMoves( inserter );
+    calculateLegalMoves( inserter, whiteTurn );
 
     // determine if this move checkmated the other player
     if ( inCheck ) {
@@ -167,29 +165,31 @@ bool Chess::move( std::pair<int, int> start, std::pair<int, int> end ) {
     return true;
 }
 
-void Chess::calculateLegalMoves( MovesDatabase::Inserter& inserter ) {
+void Chess::calculateLegalMoves( MovesDatabase::Inserter& inserter, bool isWhite, bool excludeKing ) {
     for ( int i = 0; i < 8; ++i ) {
         for ( int j = 0; j < 8; ++j ) {
             auto& currentCell = boardState_[ i ][ j ];
             switch ( currentCell.state ) {
                 case State::EMPTY:continue;
-                case State::WHITE:if ( !whiteTurn ) continue;
+                case State::WHITE:if ( !isWhite ) continue;
                     break;
-                case State::BLACK:if ( whiteTurn ) continue;
+                case State::BLACK:if ( isWhite ) continue;
             }
 
             switch ( currentCell.piece ) {
-                case Pieces::PAWN:calculatePawnMoves( inserter, { i, j }, whiteTurn );
+                case Pieces::PAWN:calculatePawnMoves( inserter, { i, j }, isWhite );
                     break;
-                case Pieces::ROOK:calculateRookMoves( inserter, { i, j }, whiteTurn );
+                case Pieces::ROOK:calculateRookMoves( inserter, { i, j }, isWhite );
                     break;
-                case Pieces::KNIGHT:calculateKnightMoves( inserter, { i, j }, whiteTurn );
+                case Pieces::KNIGHT:calculateKnightMoves( inserter, { i, j }, isWhite );
                     break;
-                case Pieces::BISHOP:calculateBishopMoves( inserter, { i, j }, whiteTurn );
+                case Pieces::BISHOP:calculateBishopMoves( inserter, { i, j }, isWhite );
                     break;
-                case Pieces::QUEEN:calculateQueenMoves( inserter, { i, j }, whiteTurn );
+                case Pieces::QUEEN:calculateQueenMoves( inserter, { i, j }, isWhite );
                     break;
-                case Pieces::KING:calculateKingMoves( inserter, { i, j }, whiteTurn );
+                case Pieces::KING:
+                    if ( !excludeKing )
+                        calculateKingMoves( inserter, { i, j }, isWhite );
                     break;
             }
         }
@@ -369,43 +369,85 @@ void Chess::calculateKingMoves( MovesDatabase::Inserter& inserter, std::pair<int
     if ( inCheck ) return;
     if ( isWhite ) {
         if ( whiteKingMoved ) return;
+        MovesDatabase otherPlayersMoves{};
+        auto          otherInserter = otherPlayersMoves.inserter();
+        calculateLegalMoves( otherInserter, !whiteTurn, true );
+
         if ( !whiteKingsRookMoved &&
              atLocation( { 7, 5 } ).state == State::EMPTY &&
              atLocation( { 7, 6 } ).state == State::EMPTY &&
              atLocation( { 7, 7 } ).state == State::WHITE &&
              atLocation( { 7, 7 } ).piece == Pieces::ROOK
-                )
-            inserter.insert( {{ 7, 4 },
-                              { 7, 6 }} );
+                ) {
+            bool castlingThroughCheck;
+            otherPlayersMoves.db << "SELECT EXISTS("
+                                    "   SELECT * FROM MOVES"
+                                    "   WHERE end_x = 7 AND end_y IN (5, 6)"
+                                    ");"
+                                 >> castlingThroughCheck;
+            if ( !castlingThroughCheck )
+                inserter.insert( {{ 7, 4 },
+                                  { 7, 6 }} );
+        }
         if ( !whiteQueensRookMoved &&
              atLocation( { 7, 3 } ).state == State::EMPTY &&
              atLocation( { 7, 2 } ).state == State::EMPTY &&
              atLocation( { 7, 1 } ).state == State::EMPTY &&
              atLocation( { 7, 0 } ).state == State::WHITE &&
              atLocation( { 7, 0 } ).piece == Pieces::ROOK
-                )
-            inserter.insert( {{ 7, 4 },
-                              { 7, 2 }} );
+                ) {
+            bool castlingThroughCheck;
+            otherPlayersMoves.db << "SELECT EXISTS("
+                                    "   SELECT * FROM MOVES"
+                                    "   WHERE end_x = 7 AND end_y IN (1,2,3)"
+                                    ");"
+                                 >> castlingThroughCheck;
+            if ( !castlingThroughCheck )
+                inserter.insert( {{ 7, 4 },
+                                  { 7, 2 }} );
+        }
     }
     else {
         if ( blackKingMoved ) return;
+        MovesDatabase otherPlayersMoves{};
+        auto          otherInserter = otherPlayersMoves.inserter();
+        calculateLegalMoves( otherInserter, !whiteTurn, true );
+
         if ( !blackKingsRookMoved &&
              atLocation( { 0, 5 } ).state == State::EMPTY &&
              atLocation( { 0, 6 } ).state == State::EMPTY &&
              atLocation( { 0, 7 } ).state == State::BLACK &&
              atLocation( { 0, 7 } ).piece == Pieces::ROOK
-                )
-            inserter.insert( {{ 0, 4 },
-                              { 0, 6 }} );
+                ) {
+            bool castlingThroughCheck;
+            otherPlayersMoves.db << "SELECT EXISTS("
+                                    "   SELECT * FROM MOVES"
+                                    "   WHERE end_x = 0 AND end_y IN (5, 6)"
+                                    ");"
+                                 >> castlingThroughCheck;
+            if ( !castlingThroughCheck )
+                inserter.insert( {{ 0, 4 },
+                                  { 0, 6 }} );
+        }
         if ( !whiteQueensRookMoved &&
              atLocation( { 0, 3 } ).state == State::EMPTY &&
              atLocation( { 0, 2 } ).state == State::EMPTY &&
              atLocation( { 0, 1 } ).state == State::EMPTY &&
              atLocation( { 0, 0 } ).state == State::BLACK &&
              atLocation( { 0, 0 } ).piece == Pieces::ROOK
-                )
+                ) {
+            bool castlingThroughCheck;
+            otherPlayersMoves.db << "SELECT EXISTS("
+                                    "   SELECT * FROM MOVES"
+                                    "   WHERE end_x = 0 AND end_y IN (1,2,3)"
+                                    ");"
+                                 >> castlingThroughCheck;
+            if ( !castlingThroughCheck )
+                inserter.insert( {{ 0, 4 },
+                                  { 0, 6 }} );
             inserter.insert( {{ 0, 4 },
                               { 0, 2 }} );
+        }
     }
 }
 

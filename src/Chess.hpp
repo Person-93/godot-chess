@@ -101,9 +101,15 @@ private:
 
     BoardState            boardState_;
     mutable MovesDatabase moves;
-    bool                  whiteTurn   = true;
-    bool                  inCheck     = false;
-    bool                  inCheckmate = false;
     std::pair<int, int>   whiteKingLocation;
     std::pair<int, int>   blackKingLocation;
+    bool                  whiteTurn            = true;
+    bool                  inCheck              = false;
+    bool                  inCheckmate          = false;
+    bool                  whiteKingMoved       = false;
+    bool                  whiteKingsRookMoved  = false;
+    bool                  whiteQueensRookMoved = false;
+    bool                  blackKingMoved       = false;
+    bool                  blackKingsRookMoved  = false;
+    bool                  blackQueensRookMoved = false;
 };

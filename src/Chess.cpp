@@ -97,6 +97,26 @@ bool Chess::move( std::pair<int, int> start, std::pair<int, int> end ) {
         }
     }
 
+    // if castling move the rook appropriately
+    if ( endCell.piece == Pieces::KING ) {
+        if ( start == std::pair{ 0, 4 } && end == std::pair{ 0, 2 } ) {
+            atLocation( { 0, 3 } ) = { State::BLACK, Pieces::ROOK };
+            atLocation( { 0, 0 } ).state = State::EMPTY;
+        }
+        else if ( start == std::pair{ 0, 4 } && end == std::pair{ 0, 6 } ) {
+            atLocation( { 0, 5 } ) = { State::BLACK, Pieces::ROOK };
+            atLocation( { 0, 7 } ).state = State::EMPTY;
+        }
+        else if ( start == std::pair{ 7, 4 } && end == std::pair{ 7, 2 } ) {
+            atLocation( { 7, 3 } ) = { State::WHITE, Pieces::ROOK };
+            atLocation( { 7, 0 } ).state = State::EMPTY;
+        }
+        else if ( start == std::pair{ 7, 4 } && end == std::pair{ 7, 6 } ) {
+            atLocation( { 7, 5 } ) = { State::WHITE, Pieces::ROOK };
+            atLocation( { 7, 7 } ).state = State::EMPTY;
+        }
+    }
+
     // determine if this move placed the other player in check
     {
         MovesDatabase nextTurnMoves{};
@@ -127,6 +147,22 @@ bool Chess::move( std::pair<int, int> start, std::pair<int, int> end ) {
         }
         if ( !wayOutExists ) inCheckmate = true;
     }
+
+    // update tracking data for castling
+    if ( endCell.piece == Pieces::KING ) {
+        if ( whiteTurn )
+            whiteKingMoved = true;
+        else
+            blackKingMoved = true;
+    }
+    else if ( start == std::pair{ 0, 0 } )
+        blackQueensRookMoved = true;
+    else if ( start == std::pair{ 0, 7 } )
+        blackKingsRookMoved = true;
+    else if ( start == std::pair{ 7, 0 } )
+        whiteQueensRookMoved = true;
+    else if ( start == std::pair{ 7, 7 } )
+        whiteKingsRookMoved = true;
 
     return true;
 }
@@ -328,6 +364,49 @@ void Chess::calculateKingMoves( MovesDatabase::Inserter& inserter, std::pair<int
     checkDirection( []( int& i ) { ++i; }, []( int& i ) { --i; } );
     checkDirection( []( int& i ) { --i; }, []( int& i ) { ++i; } );
     checkDirection( []( int& i ) { --i; }, []( int& i ) { --i; } );
+
+    // determine if player can castle
+    if ( inCheck ) return;
+    if ( isWhite ) {
+        if ( whiteKingMoved ) return;
+        if ( !whiteKingsRookMoved &&
+             atLocation( { 7, 5 } ).state == State::EMPTY &&
+             atLocation( { 7, 6 } ).state == State::EMPTY &&
+             atLocation( { 7, 7 } ).state == State::WHITE &&
+             atLocation( { 7, 7 } ).piece == Pieces::ROOK
+                )
+            inserter.insert( {{ 7, 4 },
+                              { 7, 6 }} );
+        if ( !whiteQueensRookMoved &&
+             atLocation( { 7, 3 } ).state == State::EMPTY &&
+             atLocation( { 7, 2 } ).state == State::EMPTY &&
+             atLocation( { 7, 1 } ).state == State::EMPTY &&
+             atLocation( { 7, 0 } ).state == State::WHITE &&
+             atLocation( { 7, 0 } ).piece == Pieces::ROOK
+                )
+            inserter.insert( {{ 7, 4 },
+                              { 7, 2 }} );
+    }
+    else {
+        if ( blackKingMoved ) return;
+        if ( !blackKingsRookMoved &&
+             atLocation( { 0, 5 } ).state == State::EMPTY &&
+             atLocation( { 0, 6 } ).state == State::EMPTY &&
+             atLocation( { 0, 7 } ).state == State::BLACK &&
+             atLocation( { 0, 7 } ).piece == Pieces::ROOK
+                )
+            inserter.insert( {{ 0, 4 },
+                              { 0, 6 }} );
+        if ( !whiteQueensRookMoved &&
+             atLocation( { 0, 3 } ).state == State::EMPTY &&
+             atLocation( { 0, 2 } ).state == State::EMPTY &&
+             atLocation( { 0, 1 } ).state == State::EMPTY &&
+             atLocation( { 0, 0 } ).state == State::BLACK &&
+             atLocation( { 0, 0 } ).piece == Pieces::ROOK
+                )
+            inserter.insert( {{ 0, 4 },
+                              { 0, 2 }} );
+    }
 }
 
 bool operator==( const Chess::Move& a, const Chess::Move& b ) {

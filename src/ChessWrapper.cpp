@@ -48,8 +48,7 @@ bool ChessWrapper::move( godot::Vector2 start, godot::Vector2 end ) {
     Godot::print( String( "Moving from " ) + start + " to " + end );
     bool result = chess.move( { start.x, start.y }, { end.x, end.y } );
     if ( result ) {
-        boardState_.set((int) ( end.x * 8 + end.y ), convertCell( chess.boardState()[ end.x ][ end.y ] ));
-        boardState_.set((int) ( start.x * 8 + start.y ), "empty" );
+        convertBoardState();
         Godot::print( String( "Legal moves: " ) + Variant((int) chess.legalMoves().size()));
     }
     else {

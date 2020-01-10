@@ -1,0 +1,21 @@
+[remap]
+
+importer="wav"
+type="AudioStreamSample"
+path="res://.import/black_move.wav-1818fbaf5091e949180187e08b160ca8.sample"
+
+[deps]
+
+source_file="res://sounds/black_move.wav"
+dest_files=[ "res://.import/black_move.wav-1818fbaf5091e949180187e08b160ca8.sample" ]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=true
+edit/normalize=true
+edit/loop=false
+compress/mode=0

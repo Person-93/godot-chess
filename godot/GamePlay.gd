@@ -6,6 +6,13 @@ var chess = preload("res://bin/chess.gdns").new()
 var dragging = false
 var dragged
 var start_pos
+var capturing := false
+
+export (AudioStream) var checkmate_sound
+export (AudioStream) var check_sound
+export (AudioStream) var capture_sound
+export (AudioStream) var white_move_sound
+export (AudioStream) var black_move_sound
 
 const frames = {
 	"white king": 0,
@@ -30,7 +37,8 @@ func _init():
 
 func _setup_pieces():
 	for i in get_children():
-		i.queue_free()
+		if not i is AudioStreamPlayer:
+			i.queue_free()
 		
 	var state = chess.board_state()
 	for i in range (0,64):
@@ -66,6 +74,7 @@ func _input(event):
 		dragging = false
 		dragged.get_node("Sprite").z_index = 0
 		var new_grid_pos = _grid_pos(dragged.get_position())
+		capturing = chess.board_state()[new_grid_pos.x*8+new_grid_pos.y] != "empty"
 		if chess.move(dragged.grid_pos, new_grid_pos):
 			_on_move()
 		else:
@@ -77,10 +86,30 @@ func _on_move():
 	if chess.is_checkmated():
 		var new_status = "Black wins!" if chess.is_white_turn() else "White wins!"
 		emit_signal("status_change", new_status)
-		return
-	var new_status = "White" if chess.is_white_turn() else "Black"
-	new_status += " in Check!" if chess.is_in_check() else " Move"
-	emit_signal("status_change", new_status)
+	else:
+		var new_status = "White" if chess.is_white_turn() else "Black"
+		new_status += " in Check!" if chess.is_in_check() else " Move"
+		emit_signal("status_change", new_status)
+	_play_sound_effect()
+
+
+func _play_sound_effect():
+	var sound: AudioStream
+	if chess.is_checkmated():
+		sound = checkmate_sound
+	elif chess.is_in_check():
+		sound = check_sound
+	elif capturing:
+		sound = capture_sound
+	elif chess.is_white_turn(): # black just went
+		sound = black_move_sound
+	else:
+		sound = white_move_sound
+	
+	var player = $AudioStreamPlayer
+	player.stop()
+	player.stream = sound
+	player.play()
 
 
 func _process(delta):

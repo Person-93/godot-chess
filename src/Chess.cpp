@@ -115,6 +115,13 @@ bool Chess::move( std::pair<int, int> start, std::pair<int, int> end ) {
         }
     }
 
+    // pawn promotion
+    if ( endCell.piece == Pieces::PAWN ) {
+        if (( endCell.state == State::WHITE && end.first == 0 ) ||
+            ( endCell.state == State::BLACK && end.first == 7 ))
+            endCell.piece = Pieces::QUEEN;
+    }
+
     // determine if this move placed the other player in check
     {
         MovesDatabase nextTurnMoves{};

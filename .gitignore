@@ -6,3 +6,4 @@ godot/.import/
 *.dll
 *.dylib
 *.so
+export_presets.cfg

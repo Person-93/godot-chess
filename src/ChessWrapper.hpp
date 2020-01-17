@@ -23,6 +23,8 @@ public:
 
     [[nodiscard]] bool isInCheckmate() const { return chess.isInCheckmate(); }
 
+    [[nodiscard]] bool isStalemated() const { return chess.isStalemated(); }
+
 private:
     void convertBoardState();
 

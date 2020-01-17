@@ -38,8 +38,9 @@ Chess::Chess( const Chess& other ) :
     calculateLegalMoves( inserter, whiteTurn );
 }
 
-bool Chess::move( std::pair<int, int> start, std::pair<int, int> end ) {
+bool Chess::move( std::pair<int, int> start, std::pair<int, int> end, bool extendedChecks ) {
     if ( inCheckmate ) return false;
+    if ( inStalemate ) return false;
 
     // make sure move stars and ends on the board
     if ( start.first < 0 || start.first > 7 ) return false;
@@ -139,18 +140,36 @@ bool Chess::move( std::pair<int, int> start, std::pair<int, int> end ) {
     auto inserter = moves.inserter();
     calculateLegalMoves( inserter, whiteTurn );
 
-    // determine if this move checkmated the other player
-    if ( inCheck ) {
-        // make a copy of the state of the game and try out each move to see if it gets the player out of check
-        bool  wayOutExists = false;
+    // determine if this move caused checkmate or caused the other player to have no legal moves (stalemate)
+    if ( extendedChecks ) {
+        // make a copy of the state of the game and try out each move to see if it keeps the player out of check
+        bool  legalMoveExists = false;
         Chess nextTurn{ *this };
         for ( const auto& move: legalMoves()) {
-            if ( nextTurn.move( move.start, move.end )) {
-                wayOutExists = true;
+            if ( nextTurn.move( move.start, move.end, false )) {
+                legalMoveExists = true;
                 break;
             }
         }
-        if ( !wayOutExists ) inCheckmate = true;
+        if ( !legalMoveExists ) {
+            if ( inCheck ) inCheckmate = true;
+            else inStalemate = true;
+        }
+    }
+
+    // check if the kings are the only pieces left (stalemate)
+    {
+        bool      pieceExists = false;
+        for ( int i           = 0; i < 8; ++i ) {
+            for ( int j = 0; j < 8; ++j ) {
+                const auto& cell = atLocation( { i, j } );
+                if ( cell.state != State::EMPTY && cell.piece != Pieces::KING ) {
+                    pieceExists = true;
+                    break;
+                }
+            }
+        }
+        if ( !pieceExists ) inStalemate = true;
     }
 
     // update tracking data for castling
@@ -436,7 +455,7 @@ void Chess::calculateKingMoves( MovesDatabase::Inserter& inserter, std::pair<int
                 inserter.insert( {{ 0, 4 },
                                   { 0, 6 }} );
         }
-        if ( !whiteQueensRookMoved &&
+        if ( !blackQueensRookMoved &&
              atLocation( { 0, 3 } ).state == State::EMPTY &&
              atLocation( { 0, 2 } ).state == State::EMPTY &&
              atLocation( { 0, 1 } ).state == State::EMPTY &&

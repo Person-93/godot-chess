@@ -8,6 +8,7 @@ void ChessWrapper::_register_methods() {
     register_method( "is_white_turn", &ChessWrapper::isWhiteTurn );
     register_method( "is_in_check", &ChessWrapper::isInCheck );
     register_method( "is_checkmated", &ChessWrapper::isInCheckmate );
+    register_method( "is_stalemated", &ChessWrapper::isStalemated );
 }
 
 void ChessWrapper::_init() {
@@ -46,7 +47,7 @@ namespace {
 
 bool ChessWrapper::move( godot::Vector2 start, godot::Vector2 end ) {
     Godot::print( String( "Moving from " ) + start + " to " + end );
-    bool result = chess.move( { start.x, start.y }, { end.x, end.y } );
+    bool result = chess.move( { start.x, start.y }, { end.x, end.y }, true );
     if ( result ) {
         convertBoardState();
         Godot::print( String( "Legal moves: " ) + Variant((int) chess.legalMoves().size()));

@@ -28,13 +28,15 @@ public:
 
     [[nodiscard]] const BoardState& boardState() const { return boardState_; }
 
-    bool move( std::pair<int, int> start, std::pair<int, int> end );
+    bool move( std::pair<int, int> start, std::pair<int, int> end, bool extendedChecks );
 
     [[nodiscard]] bool isWhiteTurn() const { return whiteTurn; }
 
     [[nodiscard]] bool isInCheck() const { return inCheck; }
 
     [[nodiscard]] bool isInCheckmate() const { return inCheckmate; }
+
+    [[nodiscard]] bool isStalemated() const { return inStalemate; }
 
     struct Move {
         std::pair<int, int> start;
@@ -106,6 +108,7 @@ private:
     bool                  whiteTurn            = true;
     bool                  inCheck              = false;
     bool                  inCheckmate          = false;
+    bool                  inStalemate          = false;
     bool                  whiteKingMoved       = false;
     bool                  whiteKingsRookMoved  = false;
     bool                  whiteQueensRookMoved = false;
